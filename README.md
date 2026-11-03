@@ -3,7 +3,7 @@
 How much do price cuts and promotions really move sales, and which ones pay off?
 This project answers that question on 156 weeks of store-level sales for 55 consumer goods products, the kind of panel data used for Trade Promotion Management and Revenue Growth Management.
 
-> **Status:** data loaded, quality-checked and explored; modelling table built; price elasticities estimated; promotion uplift and ROI measured. Forecasting is in progress.
+> **Status:** data loaded, quality-checked and explored; modelling table built; price elasticities estimated; promotion uplift and ROI measured; weekly forecast backtested. Packaging and client note in progress.
 
 ## Key findings so far
 
@@ -35,13 +35,23 @@ This project answers that question on 156 weeks of store-level sales for 55 cons
 - **Best promotion: display on pretzels** — a 7 % average discount, profitable even at a 25 % margin.
 - Recommendation: move TPR-only budgets to display, keep feature + display in pizza and cereal only where the margin exceeds ~35 %, and judge promotions on incremental profit, not volume lift.
 
-### 4. Data quality
+### 4. Weekly forecast, 1 to 4 weeks ahead
+
+![Forecast accuracy in the backtest](reports/figures/09_forecast_accuracy.png)
+
+- **Rolling-origin backtest** over the last 28 weeks (7 forecast dates × 4 weeks ahead), with the promotion plan known in advance and only sales at least 4 weeks old as inputs.
+- **LightGBM reaches a 28 % WAPE with no overall bias**, against 45 % for a moving average and 60 % for "same week last year": 36 % of the moving-average error removed.
+- **Simple rules fail on promotions**: the moving average under-forecasts promotion weeks by 35 % (stock-outs) and over-forecasts normal weeks by 21 %; LightGBM stays within ±3 %.
+- **Low and high scenarios (P10–P90)** from quantile models contain the actual sales 76 % of the time against an 80 % target — slightly too narrow, to be calibrated before use.
+- Accuracy barely degrades from 1 to 4 weeks ahead (26 % → 29 %): the promotion calendar carries most of the information.
+
+### 5. Data quality
 
 - 209 unusable rows excluded (missing or non-positive price or units); ~4,400 suspicious rows flagged and shown not to change the results.
 - **Two stores were listed twice with conflicting segments**, which silently duplicated about 13,700 rows in joins; fixed at load time and covered by a test.
 - About a third of the store × product series skip weeks, so previous/next-week features use a calendar join instead of `LAG()` — also tested.
 
-Full log: [`docs/data_quality_log.md`](docs/data_quality_log.md) · Details: [`notebooks/01_eda.ipynb`](notebooks/01_eda.ipynb) (exploration) · [`notebooks/02_price_elasticity.ipynb`](notebooks/02_price_elasticity.ipynb) (price models) · [`notebooks/03_promo_uplift.ipynb`](notebooks/03_promo_uplift.ipynb) (uplift and ROI).
+Full log: [`docs/data_quality_log.md`](docs/data_quality_log.md) · Details: [`notebooks/01_eda.ipynb`](notebooks/01_eda.ipynb) (exploration) · [`notebooks/02_price_elasticity.ipynb`](notebooks/02_price_elasticity.ipynb) (price models) · [`notebooks/03_promo_uplift.ipynb`](notebooks/03_promo_uplift.ipynb) (uplift and ROI) · [`notebooks/04_forecast_backtest.ipynb`](notebooks/04_forecast_backtest.ipynb) (forecast).
 
 ## Data
 
@@ -59,7 +69,7 @@ The raw file is not redistributed; see [`data/README.md`](data/README.md) to dow
 | Modelling table: promo dynamics, competition, holidays | `sql/03_weekly_panel.sql`, [`docs/model_table.md`](docs/model_table.md) | done |
 | Own- and cross-price elasticities, robustness, empirical-Bayes shrinkage, break-even margins | `notebooks/02_price_elasticity.ipynb`, `src/promo_pricing/elasticity.py` | done |
 | Baseline vs incremental volume, promo ROI, break-even margins | `notebooks/03_promo_uplift.ipynb`, `src/promo_pricing/uplift.py` | done |
-| Weekly forecast with rolling backtest (WAPE, bias) | `notebooks/04_forecast_backtest.ipynb` | next |
+| Weekly forecast with rolling backtest (WAPE, bias), P10–P90 scenarios | `sql/04_forecast_features.sql`, `notebooks/04_forecast_backtest.ipynb`, `src/promo_pricing/forecast.py` | done |
 
 ## How to run
 
@@ -74,13 +84,13 @@ $env:PYTHONPATH="src"; python -m promo_pricing.load data\dunnhumby_breakfast_at_
 # macOS / Linux
 PYTHONPATH=src python -m promo_pricing.load data/dunnhumby_breakfast_at_the_frat.xlsx data/frat.duckdb
 
-pytest        # 19 tests; pytest.ini already points to src/
+pytest        # 25 tests; pytest.ini already points to src/
 ```
-The loader builds the clean tables (`sql/01_load.sql`) and the modelling table (`sql/03_weekly_panel.sql`). Then open the notebooks in order and select the `.venv` kernel.
+The loader builds the clean tables (`sql/01_load.sql`), the modelling table (`sql/03_weekly_panel.sql`) and the forecast features (`sql/04_forecast_features.sql`). Then open the notebooks in order and select the `.venv` kernel; notebook 04 takes about 5 minutes.
 
 ## Stack
 
-Python (pandas, statsmodels, matplotlib) · SQL (DuckDB, window functions) · pytest · Git
+Python (pandas, statsmodels, LightGBM, matplotlib) · SQL (DuckDB, window functions) · pytest · Git
 
 ## Author
 
