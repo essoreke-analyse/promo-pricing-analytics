@@ -7,15 +7,31 @@ This project answers that question on 156 weeks of store-level sales for 55 cons
 
 ## Key findings so far
 
+### 1. Promotions: what moves sales
+
+![Raw lift by mechanic](reports/figures/02_raw_lift_by_mechanic.png)
+
+- **Feature + display multiplies weekly sales by 3 to 5**, while a price cut with only a shelf tag adds 20–60 %. The ranking TPR < display < feature < feature + display holds in every category.
+- Part of that raw lift is the discount itself: **at equal price, feature and display still add +12 % to +52 %** of volume.
+- **No measurable post-promotion dip** at weekly store level: promotions do not mainly pull forward future purchases.
+- Pretzels show a winter peak and react to the week before Christmas (+35 %); frozen pizza peaks in Super Bowl week.
+
+### 2. Price sensitivity
+
 ![Own-price elasticity by product](reports/figures/04_own_price_elasticity.png)
 
-1. **All 55 products have a negative, significant own-price elasticity.** Frozen pizza is the most price-sensitive category (median −2.7: a 10 % price cut lifts units by about 33 %), then cereal (−1.7), mouthwash and pretzels (−1.2).
-2. **A price cut pays off only for high-margin categories.** A 10 % cut raises gross profit only above a ~40 % gross margin for pizza, ~60 % for cereal and ~85 % for mouthwash and pretzels, where promotional money is better spent on display and feature.
-3. **Feature and display add volume on top of the discount** (+12 % to +52 % at equal price), and there is **no measurable post-promotion dip** at weekly store level.
-4. **Who takes the sales:** DiGiorno is the price reference in frozen pizza (a 10 % DiGiorno price increase lifts private label by 8.5 %); private label captures most switching from Listerine and Crest/Scope; Snyder's discounts mostly cannibalise other Snyder's products.
-5. **Method choice matters.** 59–84 % of price changes are chain-wide, so week fixed effects remove most of the price variation and give smaller elasticities; both specifications are reported as bounds.
+- **All 55 products have a negative, significant own-price elasticity.** Frozen pizza is the most price-sensitive category (median −2.7: a 10 % price cut lifts units by about 33 %), then cereal (−1.7), mouthwash and pretzels (−1.2).
+- **A price cut pays off only for high-margin categories.** A 10 % cut raises gross profit only above a ~40 % gross margin for pizza, ~60 % for cereal and ~85 % for mouthwash and pretzels, where promotional money is better spent on display and feature.
+- **Who takes the sales:** DiGiorno is the price reference in frozen pizza (a 10 % DiGiorno price increase lifts private label by 8.5 %); private label captures most switching from Listerine and Crest/Scope; Snyder's discounts mostly cannibalise other Snyder's products.
+- **Method choice matters.** 59–84 % of price changes are chain-wide, so week fixed effects remove most of the price variation and give smaller elasticities; both specifications are reported as bounds.
 
-Details: [`notebooks/01_eda.ipynb`](notebooks/01_eda.ipynb) (exploration) · [`notebooks/02_price_elasticity.ipynb`](notebooks/02_price_elasticity.ipynb) (models).
+### 3. Data quality
+
+- 209 unusable rows excluded (missing or non-positive price or units); ~4,400 suspicious rows flagged and shown not to change the results.
+- **Two stores were listed twice with conflicting segments**, which silently duplicated about 13,700 rows in joins; fixed at load time and covered by a test.
+- About a third of the store × product series skip weeks, so previous/next-week features use a calendar join instead of `LAG()` — also tested.
+
+Full log: [`docs/data_quality_log.md`](docs/data_quality_log.md) · Details: [`notebooks/01_eda.ipynb`](notebooks/01_eda.ipynb) (exploration) · [`notebooks/02_price_elasticity.ipynb`](notebooks/02_price_elasticity.ipynb) (models).
 
 ## Data
 
@@ -48,7 +64,7 @@ $env:PYTHONPATH="src"; python -m promo_pricing.load data\dunnhumby_breakfast_at_
 # macOS / Linux
 PYTHONPATH=src python -m promo_pricing.load data/dunnhumby_breakfast_at_the_frat.xlsx data/frat.duckdb
 
-pytest
+pytest        # 15 tests; pytest.ini already points to src/
 ```
 The loader builds the clean tables (`sql/01_load.sql`) and the modelling table (`sql/03_weekly_panel.sql`). Then open the notebooks in order and select the `.venv` kernel.
 
