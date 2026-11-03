@@ -3,7 +3,7 @@
 How much do price cuts and promotions really move sales, and which ones pay off?
 This project answers that question on 156 weeks of store-level sales for 55 consumer goods products, the kind of panel data used for Trade Promotion Management and Revenue Growth Management.
 
-> **Status:** Day 1 done — data loaded, quality-checked and explored. Elasticity models, uplift decomposition and forecasting are in progress.
+> **Status:** data loaded, quality-checked and explored; modelling table built and tested. Elasticity models, uplift decomposition and forecasting are in progress.
 
 ## Key findings so far
 
@@ -29,6 +29,7 @@ The raw file is not redistributed; see [`data/README.md`](data/README.md) to dow
 | Load into DuckDB, typed tables | `src/promo_pricing/load.py`, `sql/01_load.sql` | done |
 | Data quality checks | `sql/02_quality_checks.sql`, [`docs/data_quality_log.md`](docs/data_quality_log.md) | done |
 | Exploratory analysis | `notebooks/01_eda.ipynb` | done |
+| Modelling table: promo dynamics, competition, holidays | `sql/03_weekly_panel.sql`, [`docs/model_table.md`](docs/model_table.md) | done |
 | Own- and cross-price elasticities with store and week fixed effects | `notebooks/02_price_elasticity.ipynb` | next |
 | Baseline vs incremental volume, post-promotion dip, promo ROI | `notebooks/03_promo_uplift.ipynb` | planned |
 | Weekly forecast with rolling backtest (WAPE, bias) | `notebooks/04_forecast_backtest.ipynb` | planned |
@@ -48,11 +49,11 @@ PYTHONPATH=src python -m promo_pricing.load data/dunnhumby_breakfast_at_the_frat
 
 pytest
 ```
-Then open `notebooks/01_eda.ipynb` and select the `.venv` kernel.
+The loader builds the clean tables (`sql/01_load.sql`) and the modelling table (`sql/03_weekly_panel.sql`). Then open `notebooks/01_eda.ipynb` and select the `.venv` kernel.
 
 ## Stack
 
-Python (pandas, statsmodels, matplotlib) · SQL (DuckDB) · pytest · Git
+Python (pandas, statsmodels, matplotlib) · SQL (DuckDB, window functions) · pytest · Git
 
 ## Author
 

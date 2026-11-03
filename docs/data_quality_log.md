@@ -6,7 +6,8 @@ Checks are in `sql/02_quality_checks.sql` and run on the raw transaction table (
 | --- | --- | --- |
 | Duplicate week × store × product keys | 0 | — |
 | Transactions with unknown store or product | 0 | joins are safe |
-| Products / stores in lookups but never sold | 3 of 58 products, 2 of 79 stores | ignored |
+| Duplicate rows in the store lookup | 2 stores (4503, 17627) listed twice, once MAINSTREAM and once UPSCALE | one row kept per store, segment set to `AMBIGUOUS` (79 rows → 77 stores) |
+| Products in the lookup but never sold | 3 of 58 | ignored |
 | Missing or non-positive shelf price | 24 rows | **excluded** from `sales` |
 | Missing base price | 185 rows | **excluded** (discount depth cannot be computed) |
 | Non-positive units | 5 rows | **excluded** (log of units undefined) |

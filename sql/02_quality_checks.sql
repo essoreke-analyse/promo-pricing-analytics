@@ -15,6 +15,10 @@ FROM raw_transactions;
 SELECT COUNT(*) - COUNT(DISTINCT (WEEK_END_DATE, STORE_NUM, UPC)) AS duplicate_keys
 FROM raw_transactions;
 
+-- 2b. Duplicate keys in the lookups
+SELECT COUNT(*) - COUNT(DISTINCT STORE_ID) AS duplicate_store_rows FROM raw_stores;
+SELECT COUNT(*) - COUNT(DISTINCT UPC)      AS duplicate_product_rows FROM raw_products;
+
 -- 3. Orphan keys
 SELECT COUNT(*) AS orphan_stores
 FROM raw_transactions t ANTI JOIN raw_stores s ON t.STORE_NUM = s.STORE_ID;

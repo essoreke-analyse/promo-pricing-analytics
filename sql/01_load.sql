@@ -2,18 +2,22 @@
 -- Typed, clean tables built from the raw sheets (raw_stores, raw_products, raw_transactions).
 -- Clean rules are documented in docs/data_quality_log.md.
 
+-- Two stores (4503, 17627) appear twice in the lookup with conflicting segments
+-- (MAINSTREAM and UPSCALE). One row is kept per store and the segment is set to AMBIGUOUS.
 CREATE OR REPLACE TABLE stores AS
 SELECT
     STORE_ID::INTEGER              AS store_id,
-    STORE_NAME                     AS store_name,
-    ADDRESS_CITY_NAME              AS city,
-    ADDRESS_STATE_PROV_CODE        AS state,
-    MSA_CODE::INTEGER              AS msa_code,
-    SEG_VALUE_NAME                 AS store_segment,      -- VALUE / MAINSTREAM / UPSCALE
-    PARKING_SPACE_QTY::INTEGER     AS parking_spaces,
-    SALES_AREA_SIZE_NUM::INTEGER   AS sales_area_sqft,
-    AVG_WEEKLY_BASKETS::DOUBLE     AS avg_weekly_baskets
-FROM raw_stores;
+    ANY_VALUE(STORE_NAME)          AS store_name,
+    ANY_VALUE(ADDRESS_CITY_NAME)   AS city,
+    ANY_VALUE(ADDRESS_STATE_PROV_CODE) AS state,
+    ANY_VALUE(MSA_CODE)::INTEGER   AS msa_code,
+    CASE WHEN COUNT(DISTINCT SEG_VALUE_NAME) > 1 THEN 'AMBIGUOUS'
+         ELSE ANY_VALUE(SEG_VALUE_NAME) END AS store_segment,   -- VALUE / MAINSTREAM / UPSCALE
+    ANY_VALUE(PARKING_SPACE_QTY)::INTEGER   AS parking_spaces,
+    ANY_VALUE(SALES_AREA_SIZE_NUM)::INTEGER AS sales_area_sqft,
+    ANY_VALUE(AVG_WEEKLY_BASKETS)::DOUBLE   AS avg_weekly_baskets
+FROM raw_stores
+GROUP BY STORE_ID;
 
 CREATE OR REPLACE TABLE products AS
 SELECT

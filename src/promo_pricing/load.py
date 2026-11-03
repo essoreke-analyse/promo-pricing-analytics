@@ -31,7 +31,8 @@ def build_database(xlsx_path: str | Path, db_path: str | Path) -> None:
         con.register(f"raw_{name}", df)
         con.execute(f"CREATE OR REPLACE TABLE raw_{name} AS SELECT * FROM raw_{name}")
     sql_dir = Path(__file__).resolve().parents[2] / "sql"
-    con.execute((sql_dir / "01_load.sql").read_text())
+    for script in ["01_load.sql", "03_weekly_panel.sql"]:   # 02 = checks only, run separately
+        con.execute((sql_dir / script).read_text(encoding="utf-8"))
     con.close()
 
 

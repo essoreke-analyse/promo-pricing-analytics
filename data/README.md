@@ -7,5 +7,8 @@ The dataset is not redistributed in this repository.
 3. Build the database from the repository root:
 
 ```bash
+# Windows (PowerShell)
+$env:PYTHONPATH="src"; python -m promo_pricing.load data\dunnhumby_breakfast_at_the_frat.xlsx data\frat.duckdb
+# macOS / Linux
 PYTHONPATH=src python -m promo_pricing.load data/dunnhumby_breakfast_at_the_frat.xlsx data/frat.duckdb
 ```
