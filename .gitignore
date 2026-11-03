@@ -1,0 +1,6 @@
+data/*.xlsx
+data/*.duckdb
+data/*.parquet
+__pycache__/
+.ipynb_checkpoints/
+.venv/
