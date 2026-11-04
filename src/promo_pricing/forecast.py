@@ -36,7 +36,8 @@ NUMERIC = [
 
 LGB_PARAMS = dict(objective="tweedie", tweedie_variance_power=1.2, learning_rate=0.05,
                   num_leaves=63, min_data_in_leaf=50, feature_fraction=0.8,
-                  bagging_fraction=0.8, bagging_freq=1, verbose=-1, seed=42)
+                  bagging_fraction=0.8, bagging_freq=1, verbose=-1, seed=42,
+                  deterministic=True, force_row_wise=True, num_threads=4)   # same result on every run
 
 
 def load_features(db_path: str) -> pd.DataFrame:

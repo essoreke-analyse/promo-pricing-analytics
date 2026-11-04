@@ -5,7 +5,9 @@
 How much do price cuts and promotions really move sales, and which ones pay off?
 This project answers that question on 156 weeks of store-level sales for 55 consumer goods products, the kind of panel data used for Trade Promotion Management and Revenue Growth Management.
 
-> **Status:** data loaded, quality-checked and explored; modelling table built; price elasticities estimated; promotion uplift and ROI measured; weekly forecast backtested; the whole analysis runs as one tested pipeline. Client note in progress.
+> **Status:** data loaded, quality-checked and explored; modelling table built; price elasticities estimated; promotion uplift and ROI measured; weekly forecast backtested; the whole analysis runs as one tested pipeline.
+
+> **Two-page client note:** [`reports/client_note.md`](reports/client_note.md) · [PDF](reports/client_note.pdf) — findings and recommendations for a category / revenue management team.
 
 ## Key findings so far
 
@@ -42,10 +44,10 @@ This project answers that question on 156 weeks of store-level sales for 55 cons
 ![Forecast accuracy in the backtest](reports/figures/09_forecast_accuracy.png)
 
 - **Rolling-origin backtest** over the last 28 weeks (7 forecast dates × 4 weeks ahead), with the promotion plan known in advance and only sales at least 4 weeks old as inputs.
-- **LightGBM reaches a 28 % WAPE with no overall bias**, against 45 % for a moving average and 60 % for "same week last year": 36 % of the moving-average error removed.
+- **LightGBM reaches a 29 % WAPE with no overall bias**, against 45 % for a moving average and 60 % for "same week last year": 36 % of the moving-average error removed.
 - **Simple rules fail on promotions**: the moving average under-forecasts promotion weeks by 35 % (stock-outs) and over-forecasts normal weeks by 21 %; LightGBM stays within ±3 %.
-- **Low and high scenarios (P10–P90)** from quantile models contain the actual sales 76 % of the time against an 80 % target — slightly too narrow, to be calibrated before use.
-- Accuracy barely degrades from 1 to 4 weeks ahead (26 % → 29 %): the promotion calendar carries most of the information.
+- **Low and high scenarios (P10–P90)** from quantile models contain the actual sales 77 % of the time against an 80 % target — slightly too narrow, to be calibrated before use.
+- Accuracy barely degrades from 1 to 4 weeks ahead (27 % → 29 %): the promotion calendar carries most of the information.
 
 ### 5. Data quality
 
@@ -73,6 +75,7 @@ The raw file is not redistributed; see [`data/README.md`](data/README.md) to dow
 | Baseline vs incremental volume, promo ROI, break-even margins | `notebooks/03_promo_uplift.ipynb`, `src/promo_pricing/uplift.py` | done |
 | Weekly forecast with rolling backtest (WAPE, bias), P10–P90 scenarios | `sql/04_forecast_features.sql`, `notebooks/04_forecast_backtest.ipynb`, `src/promo_pricing/forecast.py` | done |
 | One-command pipeline writing every result table; installable package; tests on every push (GitHub Actions) | `src/promo_pricing/pipeline.py`, `pyproject.toml`, `.github/workflows/tests.yml` | done |
+| Two-page client note with recommendations | `reports/client_note.md`, `reports/client_note.pdf`, `reports/build_note_pdf.py` | done |
 
 ## How to run
 
