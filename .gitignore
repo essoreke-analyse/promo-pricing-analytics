@@ -4,3 +4,4 @@ data/*.parquet
 __pycache__/
 .ipynb_checkpoints/
 .venv/
+reports/tables/*.parquet

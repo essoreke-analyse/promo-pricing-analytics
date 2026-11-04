@@ -1,9 +1,11 @@
 # Promo & Pricing Analytics — weekly retail panel data
 
+[![tests](https://github.com/essoreke-analyse/promo-pricing-analytics/actions/workflows/tests.yml/badge.svg)](https://github.com/essoreke-analyse/promo-pricing-analytics/actions/workflows/tests.yml)
+
 How much do price cuts and promotions really move sales, and which ones pay off?
 This project answers that question on 156 weeks of store-level sales for 55 consumer goods products, the kind of panel data used for Trade Promotion Management and Revenue Growth Management.
 
-> **Status:** data loaded, quality-checked and explored; modelling table built; price elasticities estimated; promotion uplift and ROI measured; weekly forecast backtested. Packaging and client note in progress.
+> **Status:** data loaded, quality-checked and explored; modelling table built; price elasticities estimated; promotion uplift and ROI measured; weekly forecast backtested; the whole analysis runs as one tested pipeline. Client note in progress.
 
 ## Key findings so far
 
@@ -70,23 +72,35 @@ The raw file is not redistributed; see [`data/README.md`](data/README.md) to dow
 | Own- and cross-price elasticities, robustness, empirical-Bayes shrinkage, break-even margins | `notebooks/02_price_elasticity.ipynb`, `src/promo_pricing/elasticity.py` | done |
 | Baseline vs incremental volume, promo ROI, break-even margins | `notebooks/03_promo_uplift.ipynb`, `src/promo_pricing/uplift.py` | done |
 | Weekly forecast with rolling backtest (WAPE, bias), P10–P90 scenarios | `sql/04_forecast_features.sql`, `notebooks/04_forecast_backtest.ipynb`, `src/promo_pricing/forecast.py` | done |
+| One-command pipeline writing every result table; installable package; tests on every push (GitHub Actions) | `src/promo_pricing/pipeline.py`, `pyproject.toml`, `.github/workflows/tests.yml` | done |
 
 ## How to run
 
 ```bash
 python -m venv .venv
 # Windows: .venv\Scripts\activate    |    macOS/Linux: source .venv/bin/activate
-pip install -r requirements.txt
+pip install -e ".[dev]"          # installs the project as a package: no PYTHONPATH needed
 # put the downloaded workbook in data/ (see data/README.md)
 
-# Windows (PowerShell)
-$env:PYTHONPATH="src"; python -m promo_pricing.load data\dunnhumby_breakfast_at_the_frat.xlsx data\frat.duckdb
-# macOS / Linux
-PYTHONPATH=src python -m promo_pricing.load data/dunnhumby_breakfast_at_the_frat.xlsx data/frat.duckdb
-
-pytest        # 25 tests; pytest.ini already points to src/
+python -m promo_pricing.pipeline --rebuild    # build the database and run everything (~8 min)
+python -m promo_pricing.pipeline --skip-forecast   # quicker run without the backtest (~2 min)
+pytest                                        # 25 tests
 ```
-The loader builds the clean tables (`sql/01_load.sql`), the modelling table (`sql/03_weekly_panel.sql`) and the forecast features (`sql/04_forecast_features.sql`). Then open the notebooks in order and select the `.venv` kernel; notebook 04 takes about 5 minutes.
+
+The pipeline builds the database (`sql/01_load.sql`, `sql/03_weekly_panel.sql`, `sql/04_forecast_features.sql`), runs the quality checks and the models, and writes every result to `reports/tables/`. The notebooks tell the story step by step: open them in order with the `.venv` kernel (notebook 04 takes about 5 minutes).
+
+### Result tables (`reports/tables/`)
+
+| File | Content |
+| --- | --- |
+| `data_quality.csv` | every data-quality check and its count |
+| `own_price_elasticities.csv` | elasticity per product: main, shrunk, week fixed effects, 95 % interval, promo effects |
+| `elasticity_by_category.csv` | median elasticity, volume change and break-even margin for a 10 % price cut |
+| `cross_price_elasticities.csv` | brand × brand cross-price elasticities with t-statistics |
+| `promo_volume_decomposition.csv` | baseline vs incremental volume (price / support) by category and mechanic |
+| `promo_roi.csv` | trade spend, incremental profit and ROI at 25 / 35 / 45 % gross margin |
+| `forecast_backtest_metrics.csv` | WAPE, bias and P10–P90 coverage by model and segment |
+| `forecast_feature_importance.csv` | what the LightGBM forecast relies on |
 
 ## Stack
 

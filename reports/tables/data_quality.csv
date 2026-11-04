@@ -1,0 +1,28 @@
+check,value
+first_week,2009-01-14 00:00:00
+last_week,2012-01-04 00:00:00
+n_weeks,156
+n_stores,77
+n_products,55
+n_rows,524950
+duplicate_keys,0
+duplicate_store_rows,2
+duplicate_product_rows,0
+orphan_stores,0
+orphan_products,0
+price_missing,23.0
+base_price_missing,185.0
+price_non_positive,1.0
+units_non_positive,5.0
+price_above_base,2066.0
+spend_inconsistent,0.0
+more_baskets_than_units,2309.0
+n_pairs,3909
+complete_pairs,1225.0
+median_weeks,149.0
+pairs_under_one_year,203.0
+rows with FEATURE/DISPLAY/TPR_ONLY = 0/0/0,375564
+rows with FEATURE/DISPLAY/TPR_ONLY = 0/0/1,70734
+rows with FEATURE/DISPLAY/TPR_ONLY = 0/1/0,34401
+rows with FEATURE/DISPLAY/TPR_ONLY = 1/1/0,23414
+rows with FEATURE/DISPLAY/TPR_ONLY = 1/0/0,20837

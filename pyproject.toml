@@ -1,0 +1,28 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "promo-pricing"
+version = "0.1.0"
+description = "Price elasticity, promotion uplift and weekly forecasting on dunnhumby retail panel data"
+authors = [{ name = "Essoréké Kiheou" }]
+requires-python = ">=3.10"
+dependencies = [
+    "pandas>=2.0",
+    "openpyxl",
+    "duckdb>=1.0",
+    "pyarrow",
+    "statsmodels",
+    "matplotlib",
+    "lightgbm",
+]
+
+[project.optional-dependencies]
+dev = ["pytest", "ipykernel"]
+
+[project.scripts]
+promo-pipeline = "promo_pricing.pipeline:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]

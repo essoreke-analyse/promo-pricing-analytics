@@ -1,0 +1,11 @@
+pandas>=2.0
+openpyxl
+duckdb>=1.0
+pyarrow
+statsmodels
+matplotlib
+lightgbm
+
+[dev]
+pytest
+ipykernel

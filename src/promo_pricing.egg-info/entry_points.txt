@@ -1,0 +1,2 @@
+[console_scripts]
+promo-pipeline = promo_pricing.pipeline:main
