@@ -5,5 +5,9 @@ pyarrow
 statsmodels
 matplotlib
 lightgbm
+pyyaml
+streamlit>=1.50
+plotly
+openai>=1.0
 ipykernel
 pytest

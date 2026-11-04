@@ -14,7 +14,7 @@ jobs:
           python-version: "3.12"
           cache: pip
       - name: Install the package
-        run: pip install -e ".[dev]"
+        run: pip install -e ".[dev,app]"
       - name: Run the tests
         # Tests that need the dunnhumby database are skipped here (the data is not redistributed);
         # the method and metric tests run on every push.

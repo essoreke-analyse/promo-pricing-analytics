@@ -11,6 +11,11 @@ Requires-Dist: pyarrow
 Requires-Dist: statsmodels
 Requires-Dist: matplotlib
 Requires-Dist: lightgbm
+Requires-Dist: pyyaml
 Provides-Extra: dev
 Requires-Dist: pytest; extra == "dev"
 Requires-Dist: ipykernel; extra == "dev"
+Provides-Extra: app
+Requires-Dist: streamlit>=1.40; extra == "app"
+Requires-Dist: plotly; extra == "app"
+Requires-Dist: openai>=1.0; extra == "app"

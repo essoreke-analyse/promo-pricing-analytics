@@ -5,7 +5,7 @@
 How much do price cuts and promotions really move sales, and which ones pay off?
 This project answers that question on 156 weeks of store-level sales for 55 consumer goods products, the kind of panel data used for Trade Promotion Management and Revenue Growth Management.
 
-> **Status:** data loaded, quality-checked and explored; modelling table built; price elasticities estimated; promotion uplift and ROI measured; weekly forecast backtested; the whole analysis runs as one tested pipeline.
+> **Status:** data loaded, quality-checked and explored; modelling table built; price elasticities estimated; promotion uplift and ROI measured; weekly forecast backtested; the whole analysis runs as one tested pipeline; interactive app with a promotion simulator and an LLM assistant evaluated on 20 questions.
 
 > **Two-page client note:** [`reports/client_note.md`](reports/client_note.md) · [PDF](reports/client_note.pdf) — findings and recommendations for a category / revenue management team.
 
@@ -61,6 +61,19 @@ This project answers that question on 156 weeks of store-level sales for 55 cons
 
 Full log: [`docs/data_quality_log.md`](docs/data_quality_log.md) · Details: [`notebooks/01_eda.ipynb`](notebooks/01_eda.ipynb) (exploration) · [`notebooks/02_price_elasticity.ipynb`](notebooks/02_price_elasticity.ipynb) (price models) · [`notebooks/03_promo_uplift.ipynb`](notebooks/03_promo_uplift.ipynb) (uplift and ROI) · [`notebooks/04_forecast_backtest.ipynb`](notebooks/04_forecast_backtest.ipynb) (forecast).
 
+## Interactive app and AI assistant
+
+![Promotion simulator](reports/figures/12_app_simulator.png)
+
+`streamlit run app/streamlit_app.py` opens a four-tab app built only on the aggregated result tables:
+
+- **Overview** — the headline results.
+- **Promotion simulator** — pick a product, a discount, feature and display and a margin: units, gross profit, ROI and break-even margin, plus profit for every discount depth. Above: with feature and display, DiGiorno pizza makes the most profit with the *smallest* discount — the support, not the price cut, drives the volume.
+- **Forecast** — backtest accuracy and bias by model, and example series with the low–high scenario.
+- **Ask the data** — an LLM assistant (Mistral, Groq, OpenAI or a local Ollama model) that answers in English or French by **calling tools that read the result tables**, so every number comes from the analysis; each answer shows the tool calls behind it.
+
+The assistant is measured on an **evaluation set of 20 questions** (lookups, comparisons, simulations, multi-step questions and out-of-scope questions it must decline), graded automatically on the numbers, keywords and refusals a correct answer must contain, and on whether the answer was grounded in a tool call. The expected answers are themselves tested against the result tables. Design, evaluation and free deployment: [`docs/assistant.md`](docs/assistant.md).
+
 ## Data
 
 [dunnhumby — *Breakfast at the Frat*](https://www.dunnhumby.com/source-files/): weekly units, spend, shelf and base price, and promotion flags (feature in circular, in-store display, temporary price reduction) for the top products of 4 categories — cold cereal, frozen pizza, pretzels, mouthwash — in 77 stores across Ohio, Kentucky, Indiana and Texas, January 2009 – January 2012. 524,950 rows.
@@ -80,18 +93,24 @@ The raw file is not redistributed; see [`data/README.md`](data/README.md) to dow
 | Weekly forecast with rolling backtest (WAPE, bias), P10–P90 scenarios | `sql/04_forecast_features.sql`, `notebooks/04_forecast_backtest.ipynb`, `src/promo_pricing/forecast.py` | done |
 | One-command pipeline writing every result table; installable package; tests on every push (GitHub Actions) | `src/promo_pricing/pipeline.py`, `pyproject.toml`, `.github/workflows/tests.yml` | done |
 | Two-page client note with recommendations | `reports/client_note.md`, `reports/client_note.pdf`, `reports/build_note_pdf.py` | done |
+| Promotion simulator | `src/promo_pricing/simulator.py` | done |
+| LLM assistant with tool calling, 20-question evaluation set and automatic grader | `src/promo_pricing/assistant/`, `evals/questions.yaml`, [`docs/assistant.md`](docs/assistant.md) | done |
+| Streamlit app | `app/streamlit_app.py` | done |
 
 ## How to run
 
 ```bash
 python -m venv .venv
 # Windows: .venv\Scripts\activate    |    macOS/Linux: source .venv/bin/activate
-pip install -e ".[dev]"          # installs the project as a package: no PYTHONPATH needed
+pip install -e ".[dev,app]"      # installs the project as a package: no PYTHONPATH needed
 # put the downloaded workbook in data/ (see data/README.md)
 
 python -m promo_pricing.pipeline --rebuild    # build the database and run everything (~8 min)
 python -m promo_pricing.pipeline --skip-forecast   # quicker run without the backtest (~2 min)
-pytest                                        # 25 tests
+pytest                                        # 61 tests
+
+streamlit run app/streamlit_app.py            # the interactive app
+python -m promo_pricing.assistant.evaluate --provider mistral --pause 2   # evaluate the assistant (needs LLM_API_KEY)
 ```
 
 The pipeline builds the database (`sql/01_load.sql`, `sql/03_weekly_panel.sql`, `sql/04_forecast_features.sql`), runs the quality checks and the models, and writes every result to `reports/tables/`. The notebooks tell the story step by step: open them in order with the `.venv` kernel (notebook 04 takes about 5 minutes).
@@ -108,10 +127,12 @@ The pipeline builds the database (`sql/01_load.sql`, `sql/03_weekly_panel.sql`, 
 | `promo_roi.csv` | trade spend, incremental profit and ROI at 25 / 35 / 45 % gross margin |
 | `forecast_backtest_metrics.csv` | WAPE, bias and P10–P90 coverage by model and segment |
 | `forecast_feature_importance.csv` | what the LightGBM forecast relies on |
+| `products.csv` | readable product names, normal weekly sales level and base price (used by the simulator and the assistant) |
+| `forecast_category_weekly.csv`, `forecast_examples.csv` | aggregated forecast results and example series for the app |
 
 ## Stack
 
-Python (pandas, statsmodels, LightGBM, matplotlib) · SQL (DuckDB, window functions) · pytest · Git
+Python (pandas, statsmodels, LightGBM, matplotlib, Plotly) · SQL (DuckDB, window functions) · Streamlit · LLM tool calling (OpenAI-compatible API) · pytest · GitHub Actions · Git
 
 ## Author
 

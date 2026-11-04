@@ -1,0 +1,148 @@
+# Evaluation set for the analytics assistant.
+#
+# Each question has:
+#   numbers      numbers the answer must contain (kind: plain | share | money);
+#                {any_of: [...]} accepts any one of several equivalent formulations
+#                share: given as a fraction, accepted as 0.326 or 32.6 (%); money: relative tolerance
+#   keywords     groups of words; the answer must contain at least one word of EACH group
+#   tools        the answer is "grounded" if at least one of these tools was called
+#   refuse       true when the right answer is to say the analysis does not cover it
+#   reference    tool call + field that produce the expected number (checked by tests/test_evals.py,
+#                so the expected answers can never drift from the results tables)
+
+- id: q01
+  type: lookup
+  question: What is the median own-price elasticity of frozen pizza?
+  numbers: [{value: -2.68, kind: plain, tol: 0.05, sign_insensitive: true}]
+  tools: [get_category_summary]
+  reference: {tool: get_category_summary, args: {category: pizza}, field: median_own_price_elasticity}
+
+- id: q02
+  type: lookup
+  question: Quelle est l'élasticité-prix médiane des céréales ?
+  numbers: [{value: -1.74, kind: plain, tol: 0.05, sign_insensitive: true}]
+  tools: [get_category_summary]
+  reference: {tool: get_category_summary, args: {category: cereal}, field: median_own_price_elasticity}
+
+- id: q03
+  type: lookup
+  question: What is the own-price elasticity of DiGiorno pepperoni pizza?
+  numbers: [{value: -2.59, kind: plain, tol: 0.05, sign_insensitive: true}]
+  tools: [get_product_elasticity]
+  reference: {tool: get_product_elasticity, args: {upc: 7192100339}, field: own_price_elasticity}
+
+- id: q04
+  type: lookup
+  question: What WAPE does the LightGBM model reach in the forecast backtest?
+  numbers: [{value: 0.286, kind: share, tol: 0.006}]
+  tools: [get_forecast_accuracy]
+  reference: {tool: get_forecast_accuracy, args: {}, field: models.lightgbm.wape}
+
+- id: q05
+  type: lookup
+  question: How often do actual sales fall inside the P10-P90 forecast range?
+  numbers: [{value: 0.766, kind: share, tol: 0.006}]
+  tools: [get_forecast_accuracy]
+  reference: {tool: get_forecast_accuracy, args: {}, field: p10_p90_coverage}
+
+- id: q06
+  type: lookup
+  question: How many rows in the raw data show more baskets than units sold?
+  numbers: [{value: 2309, kind: plain, tol: 0.5}]
+  tools: [get_data_quality]
+  reference: {tool: get_data_quality, args: {}, field: checks.more_baskets_than_units}
+
+- id: q07
+  type: comparison
+  question: Which category is the most price-sensitive, and which is the least?
+  keywords: [[pizza], [pretzel, mouthwash]]
+  tools: [get_category_summary]
+
+- id: q08
+  type: comparison
+  question: In promotion weeks, how does LightGBM compare with the moving average on WAPE?
+  numbers: [{value: 0.314, kind: share, tol: 0.006}, {value: 0.517, kind: share, tol: 0.006}]
+  tools: [get_forecast_accuracy]
+  reference: {tool: get_forecast_accuracy, args: {segment: promotion weeks}, field: models.lightgbm.wape}
+
+- id: q09
+  type: comparison
+  question: When DiGiorno raises its price, which brand gains the most sales?
+  numbers: [{any_of: [{value: 0.85, kind: plain, tol: 0.03}, {value: 8.5, kind: plain, tol: 0.3}]}]
+  keywords: [[private label, store brand, marque de distributeur]]
+  tools: [get_cross_elasticity]
+  reference: {tool: get_cross_elasticity, args: {category: pizza, brand_whose_price_changes: DiGiorno, brand_whose_sales_move: private label}, field: effects.0.elasticity}
+
+- id: q10
+  type: comparison
+  question: Quel mécanisme promotionnel est le plus rentable pour les bretzels, à 35 % de marge ?
+  numbers: [{value: 0.57, kind: share, tol: 0.03}]
+  keywords: [[display, présentoir, presentoir]]
+  tools: [get_promo_performance]
+  reference: {tool: get_promo_performance, args: {category: pretzels, mechanic: display}, field: mechanics.0.roi}
+
+- id: q11
+  type: simulation
+  question: What happens to unit sales of DiGiorno pepperoni pizza if we cut its price by 10 %?
+  numbers: [{value: 0.316, kind: share, tol: 0.01}]
+  tools: [simulate_promotion, get_product_elasticity]
+  reference: {tool: simulate_promotion, args: {upc: 7192100339, price_change: -0.1}, field: volume_change}
+
+- id: q12
+  type: simulation
+  question: Simulate a 25 % discount with feature and display on DiGiorno pepperoni pizza at a 35 % margin. Does it make money?
+  keywords: [["yes", profit, profitable, rentable, gain, positive, "+"]]
+  numbers: [{any_of: [{value: 0.02, kind: share, tol: 0.015}, {value: 117, kind: money, tol: 0.05}]}]
+  tools: [simulate_promotion]
+  reference: {tool: simulate_promotion, args: {upc: 7192100339, price_change: -0.25, feature: true, display: true}, field: roi}
+
+- id: q13
+  type: simulation
+  question: Above which gross margin does a 10 % price cut on frozen pizza increase profit?
+  numbers: [{value: 0.406, kind: share, tol: 0.01}]
+  tools: [get_category_summary]
+  reference: {tool: get_category_summary, args: {category: pizza}, field: breakeven_gross_margin_for_10pct_price_cut}
+
+- id: q14
+  type: simulation
+  question: Si je baisse de 20 % le prix des mini bretzels torsadés marque distributeur, sans mise en avant, combien je gagne ou je perds en marge brute à 35 % ?
+  numbers: [{value: -848, kind: money, tol: 0.02, sign_insensitive: true}]
+  keywords: [[perte, perd, perdre, loss, lose, "-", "−"]]
+  tools: [simulate_promotion]
+  reference: {tool: simulate_promotion, args: {upc: 1111009477, price_change: -0.2}, field: chain_profit_change}
+
+- id: q15
+  type: multi_step
+  question: For mouthwash TPR-only promotions, what share of promoted units would have sold anyway, and what is their ROI at a 35 % margin?
+  numbers: [{value: 0.642, kind: share, tol: 0.006}, {value: -0.55, kind: share, tol: 0.02, sign_insensitive: true}]
+  tools: [get_promo_performance]
+  reference: {tool: get_promo_performance, args: {category: mouthwash, mechanic: tpr only}, field: mechanics.0.baseline_share_of_promoted_units}
+
+- id: q16
+  type: multi_step
+  question: Compare the ROI of feature + display promotions in cereal at a 25 % and at a 45 % gross margin.
+  numbers: [{value: -0.34, kind: share, tol: 0.02, sign_insensitive: true}, {value: 0.18, kind: share, tol: 0.02}]
+  tools: [get_promo_performance]
+  reference: {tool: get_promo_performance, args: {category: cereal, mechanic: feature + display, gross_margin: 0.45}, field: mechanics.0.roi}
+
+- id: q17
+  type: multi_step
+  question: How much trade spend went to TPR-only promotions in cereal, and how much gross profit did they lose at a 35 % margin?
+  numbers: [{value: 387273, kind: money, tol: 0.02}, {value: -231727, kind: money, tol: 0.02, sign_insensitive: true}]
+  tools: [get_promo_performance]
+  reference: {tool: get_promo_performance, args: {category: cereal, mechanic: tpr only}, field: mechanics.0.trade_spend_usd}
+
+- id: q18
+  type: out_of_scope
+  question: What is the price elasticity of yogurt?
+  refuse: true
+
+- id: q19
+  type: out_of_scope
+  question: Who won the 2010 football World Cup?
+  refuse: true
+
+- id: q20
+  type: out_of_scope
+  question: Combien de pizzas DiGiorno seront vendues en 2015 ?
+  refuse: true

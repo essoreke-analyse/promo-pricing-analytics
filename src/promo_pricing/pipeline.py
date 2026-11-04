@@ -16,6 +16,7 @@ import duckdb
 import pandas as pd
 
 from promo_pricing import elasticity, forecast, uplift
+from promo_pricing.app_data import build_app_tables
 from promo_pricing.load import build_database
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -149,6 +150,13 @@ def forecast_backtest() -> pd.DataFrame:
     return metrics
 
 
+@step("app and assistant tables")
+def app_tables() -> None:
+    preds = OUT / "forecast_backtest_predictions.parquet"
+    backtest = pd.read_parquet(preds) if preds.exists() else None
+    build_app_tables(str(DB), OUT, backtest)
+
+
 def main(argv=None) -> None:
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("--rebuild", action="store_true", help="rebuild the database from the Excel file")
@@ -166,6 +174,7 @@ def main(argv=None) -> None:
     promotion_return(panel)
     if not args.skip_forecast:
         forecast_backtest()
+    app_tables()
 
     log.info("all done in %.0f s — results in %s", time.time() - t0, OUT.relative_to(ROOT))
 

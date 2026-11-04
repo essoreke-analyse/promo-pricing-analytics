@@ -1,2 +1,3 @@
 [console_scripts]
+promo-eval = promo_pricing.assistant.evaluate:main
 promo-pipeline = promo_pricing.pipeline:main

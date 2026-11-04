@@ -1,10 +1,12 @@
 README.md
 pyproject.toml
 src/promo_pricing/__init__.py
+src/promo_pricing/app_data.py
 src/promo_pricing/elasticity.py
 src/promo_pricing/forecast.py
 src/promo_pricing/load.py
 src/promo_pricing/pipeline.py
+src/promo_pricing/simulator.py
 src/promo_pricing/uplift.py
 src/promo_pricing.egg-info/PKG-INFO
 src/promo_pricing.egg-info/SOURCES.txt
@@ -12,7 +14,14 @@ src/promo_pricing.egg-info/dependency_links.txt
 src/promo_pricing.egg-info/entry_points.txt
 src/promo_pricing.egg-info/requires.txt
 src/promo_pricing.egg-info/top_level.txt
+src/promo_pricing/assistant/__init__.py
+src/promo_pricing/assistant/agent.py
+src/promo_pricing/assistant/evaluate.py
+src/promo_pricing/assistant/tools.py
+tests/test_assistant.py
 tests/test_elasticity.py
+tests/test_evals.py
 tests/test_forecast.py
 tests/test_load.py
+tests/test_simulator.py
 tests/test_uplift.py

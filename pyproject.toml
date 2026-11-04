@@ -16,13 +16,16 @@ dependencies = [
     "statsmodels",
     "matplotlib",
     "lightgbm",
+    "pyyaml",
 ]
 
 [project.optional-dependencies]
 dev = ["pytest", "ipykernel"]
+app = ["streamlit>=1.50", "plotly", "openai>=1.0"]
 
 [project.scripts]
 promo-pipeline = "promo_pricing.pipeline:main"
+promo-eval = "promo_pricing.assistant.evaluate:main"
 
 [tool.setuptools.packages.find]
 where = ["src"]
