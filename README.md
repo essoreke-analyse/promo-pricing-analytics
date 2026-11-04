@@ -7,6 +7,8 @@ This project answers that question on 156 weeks of store-level sales for 55 cons
 
 > **Status:** data loaded, quality-checked and explored; modelling table built; price elasticities estimated; promotion uplift and ROI measured; weekly forecast backtested; the whole analysis runs as one tested pipeline; interactive app with a promotion simulator and an LLM assistant evaluated on 20 questions.
 
+> **Live app:** [promo-pricing-analytics.streamlit.app](https://promo-pricing-analytics.streamlit.app) — promotion simulator, forecast explorer and an AI assistant that answers questions about the results.
+
 > **Two-page client note:** [`reports/client_note.md`](reports/client_note.md) · [PDF](reports/client_note.pdf) — findings and recommendations for a category / revenue management team.
 
 ## Key findings so far
@@ -65,7 +67,7 @@ Full log: [`docs/data_quality_log.md`](docs/data_quality_log.md) · Details: [`n
 
 ![Promotion simulator](reports/figures/12_app_simulator.png)
 
-`streamlit run app/streamlit_app.py` opens a four-tab app built only on the aggregated result tables:
+**[Open the live app](https://promo-pricing-analytics.streamlit.app)**, or run it locally with `streamlit run app/streamlit_app.py`. It has four tabs and uses only the aggregated result tables:
 
 - **Overview** — the headline results.
 - **Promotion simulator** — pick a product, a discount, feature and display and a margin: units, gross profit, ROI and break-even margin, plus profit for every discount depth. Above: with feature and display, DiGiorno pizza makes the most profit with the *smallest* discount — the support, not the price cut, drives the volume.
