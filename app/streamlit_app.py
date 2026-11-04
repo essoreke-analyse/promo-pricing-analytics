@@ -191,13 +191,13 @@ with tab_ai:
         except Exception:
             return os.getenv(name)
 
-    provider = secret("LLM_PROVIDER") or "mistral"
+    provider = secret("LLM_PROVIDER") or "groq"
     key = secret("LLM_API_KEY")
     with st.expander("Model settings", expanded=not key):
-        provider = st.selectbox("Provider", ["mistral", "groq", "openai", "ollama"],
-                                index=["mistral", "groq", "openai", "ollama"].index(provider))
+        providers = ["groq", "mistral", "openai", "ollama"]
+        provider = st.selectbox("Provider", providers, index=providers.index(provider))
         typed = st.text_input("API key (kept for this session only)", type="password",
-                              help="Free keys: console.mistral.ai or console.groq.com. Not needed for a local Ollama model.")
+                              help="Free key: console.groq.com. Not needed for a local Ollama model.")
         key = typed or key
 
     eval_md = ROOT / "reports" / "assistant_eval.md"

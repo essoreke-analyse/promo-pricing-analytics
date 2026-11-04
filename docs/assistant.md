@@ -27,7 +27,8 @@ Design choices:
 - **Grounding:** the system prompt forbids numbers that do not come from a tool result in the conversation, and asks for the source table.
 - **Errors as feedback:** a wrong argument (unknown product, unknown category) returns an error message to the model, which can correct itself — for example by calling `find_products` first.
 - **Scope:** questions outside the study (other products, general knowledge) must be declined.
-- **Provider-agnostic:** any OpenAI-compatible API (Mistral, Groq, OpenAI, local Ollama), `temperature = 0`, at most 6 tool rounds.
+- **Provider-agnostic:** any OpenAI-compatible API (Groq, Mistral, OpenAI, local Ollama), `temperature = 0`, at most 6 tool rounds. Switching provider is one environment variable.
+- **Robust to the provider:** rate limits (HTTP 429) are retried with exponential backoff; optional tool parameters accept `null`, because some providers validate tool calls strictly against the schema.
 - **Testable without a model:** `tests/test_assistant.py` replays scripted LLM responses through the real loop.
 
 Code: `src/promo_pricing/assistant/` (`tools.py`, `agent.py`, `evaluate.py`).
@@ -43,20 +44,20 @@ Code: `src/promo_pricing/assistant/` (`tools.py`, `agent.py`, `evaluate.py`).
 
 `tests/test_evals.py` checks that every expected number still matches the result tables, so the evaluation set cannot silently drift when the analysis changes, and that the grader accepts good answers and rejects bad ones.
 
-Run it with your key (free tiers limit requests per minute, hence the pause):
+Run it with your key (free tiers limit requests per minute, hence the pause). Groq offers a free API key at console.groq.com; Mistral's free plan does not activate API keys.
 
 ```bash
 # Windows PowerShell
-$env:LLM_PROVIDER="mistral"; $env:LLM_API_KEY="your-key"
-python -m promo_pricing.assistant.evaluate --pause 2
+$env:LLM_PROVIDER="groq"; $env:LLM_API_KEY="your-key"
+python -m promo_pricing.assistant.evaluate --pause 5
 
 # macOS / Linux
-LLM_PROVIDER=mistral LLM_API_KEY=your-key python -m promo_pricing.assistant.evaluate --pause 2
+LLM_PROVIDER=groq LLM_API_KEY=your-key python -m promo_pricing.assistant.evaluate --pause 5
 ```
 
-It writes `reports/assistant_eval.md` (accuracy overall and by question type, grounding rate, latency, tokens, list of failures) and `reports/assistant_eval.csv` (every question, answer, tools called and reason for failure). The app shows the summary in the "Ask the data" tab.
+It writes `reports/assistant_eval.md` (accuracy overall and by question type, grounding rate, latency, tokens, wrong answers, and — separately — questions not graded because the provider failed: quota, network) and `reports/assistant_eval.csv` (every question, answer, tools called and reason for failure). The app shows the summary in the "Ask the data" tab.
 
-To compare models, run it with `--provider groq` or `--model mistral-large-latest` and keep each report.
+Only infrastructure failures (429, 401/403, 5xx, network) are left ungraded; a 400 error such as an invalid tool call counts as a wrong answer, because the model produced it. To compare models, run it with another `--provider` or `--model` and keep each report.
 
 ## Running and deploying the app
 
@@ -72,7 +73,7 @@ Free deployment on **Streamlit Community Cloud**:
 2. "Create app" → repository `promo-pricing-analytics`, branch `main`, main file `app/streamlit_app.py`.
 3. Optional — to let visitors use the assistant without their own key, add in *Advanced settings → Secrets*:
    ```toml
-   LLM_PROVIDER = "mistral"
+   LLM_PROVIDER = "groq"
    LLM_API_KEY = "your-key"
    ```
    The app limits each session to 20 questions. Never commit the key: `.streamlit/secrets.toml` is in `.gitignore`.

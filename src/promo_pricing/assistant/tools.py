@@ -37,6 +37,11 @@ BRAND_ALIASES = {
 }
 MECHANICS = {"tpr only": "TPR only", "tpr": "TPR only", "price cut only": "TPR only", "display": "Display",
              "feature": "Feature", "feature + display": "Feature + Display", "feature and display": "Feature + Display"}
+BRAND_LABEL = {"TOMBSTONE": "DiGiorno (Kraft)", "TONYS": "Freschetta / Tony's", "KING": "Newman's Own",
+               "WARNER": "Listerine", "P & G": "Crest / Scope (P&G)", "CHATTEM": "ACT (Chattem)",
+               "COLGATE": "Colgate", "GENERAL MI": "General Mills (Cheerios)", "KELLOGG": "Kellogg's",
+               "POST FOODS": "Post", "QUAKER": "Quaker", "FRITO LAY": "Rold Gold (Frito-Lay)",
+               "SNYDER S": "Snyder's", "MKSL": "Mike-sell's", "SHULTZ": "Shultz", "PRIVATE LABEL": "Private label"}
 CATEGORY_LABEL = {"COLD CEREAL": "Cold cereal", "FROZEN PIZZA": "Frozen pizza",
                   "BAG SNACKS": "Pretzels", "ORAL HYGIENE PRODUCTS": "Mouthwash"}
 
@@ -132,17 +137,18 @@ def get_cross_elasticity(category: str, brand_whose_price_changes: str, brand_wh
     t = _table("cross_price_elasticities.csv").query("category == @c and brand_whose_price_changes == @price_brand")
     if brand_whose_sales_move:
         t = t[t["brand_whose_sales_move"] == _brand(brand_whose_sales_move, c)]
-    rows = [{"brand_whose_sales_move": r["brand_whose_sales_move"], "elasticity": _r(r["elasticity"], 2),
+    rows = [{"brand_whose_sales_move": BRAND_LABEL.get(r["brand_whose_sales_move"], r["brand_whose_sales_move"]), "elasticity": _r(r["elasticity"], 2),
              "t_stat": _r(r["t_stat"], 1), "significant": bool(abs(r["t_stat"]) >= 2),
              "is_own_elasticity": r["brand_whose_sales_move"] == price_brand} for _, r in t.iterrows()]
-    return {"category": CATEGORY_LABEL[c], "brand_whose_price_changes": price_brand, "effects": rows,
+    return {"category": CATEGORY_LABEL[c], "brand_whose_price_changes": BRAND_LABEL.get(price_brand, price_brand), "effects": rows,
             "reading": "positive = substitutes: a 1 % price increase of the first brand raises the other brand's units by that %",
             "source": "cross_price_elasticities.csv"}
 
 
-def get_promo_performance(category: str, mechanic: str | None = None, gross_margin: float = 0.35) -> dict:
+def get_promo_performance(category: str, mechanic: str | None = None, gross_margin: float | None = 0.35) -> dict:
     """Baseline vs incremental volume and ROI of promotions by mechanic, at 25, 35 or 45 % gross margin."""
     c = _category(category)
+    gross_margin = 0.35 if gross_margin is None else gross_margin
     m = min((0.25, 0.35, 0.45), key=lambda x: abs(x - float(gross_margin)))
     vol = _table("promo_volume_decomposition.csv").query("category == @c")
     roi = _table("promo_roi.csv").query("category == @c and gross_margin == @m")
@@ -166,10 +172,10 @@ def get_promo_performance(category: str, mechanic: str | None = None, gross_marg
             "source": "promo_volume_decomposition.csv, promo_roi.csv"}
 
 
-def get_forecast_accuracy(segment: str = "all weeks") -> dict:
+def get_forecast_accuracy(segment: str | None = "all weeks") -> dict:
     """Backtest accuracy (WAPE, bias) of the four forecast models and the P10-P90 coverage."""
     t = _table("forecast_backtest_metrics.csv")
-    seg = segment.strip().lower()
+    seg = (segment or "all weeks").strip().lower()
     if seg in {"promo", "promotion", "promotions", "promotion weeks"}:
         seg = "promotion weeks"
     elif seg in {"no promo", "normal", "normal weeks", "weeks without promotion"}:
@@ -187,11 +193,12 @@ def get_forecast_accuracy(segment: str = "all weeks") -> dict:
             "source": "forecast_backtest_metrics.csv"}
 
 
-def simulate_promotion(upc: int, price_change: float, feature: bool = False, display: bool = False,
-                       gross_margin: float = 0.35) -> dict:
+def simulate_promotion(upc: int, price_change: float, feature: bool | None = False, display: bool | None = False,
+                       gross_margin: float | None = 0.35) -> dict:
     """What-if for one product: price change (e.g. -0.10 for a 10 % cut), feature, display, margin."""
     try:
-        s = simulate(_sim_inputs(), int(upc), float(price_change), bool(feature), bool(display), float(gross_margin))
+        margin = 0.35 if gross_margin is None else float(gross_margin)
+        s = simulate(_sim_inputs(), int(upc), float(price_change), bool(feature), bool(display), margin)
     except (KeyError, ValueError) as e:
         raise ToolError(str(e))
     d = s.to_dict()
@@ -209,27 +216,32 @@ TOOLS = {f.__name__: f for f in [find_products, get_category_summary, get_produc
                                  get_promo_performance, get_forecast_accuracy, simulate_promotion, get_data_quality]}
 
 _CATEGORY_PARAM = {"type": "string", "description": "pizza, cereal, mouthwash or pretzels"}
+# Optional parameters accept null: some providers (e.g. Groq) validate tool calls strictly,
+# and models often send null for "no value".
+_OPTIONAL_CATEGORY = {"type": ["string", "null"], "description": "optional: pizza, cereal, mouthwash or pretzels"}
 TOOL_SCHEMAS = [
     {"name": "find_products", "description": "Find products (and their upc code) by name or brand. Call this before any product-level tool.",
-     "parameters": {"type": "object", "properties": {"query": {"type": "string"}, "category": _CATEGORY_PARAM}, "required": ["query"]}},
+     "parameters": {"type": "object", "properties": {"query": {"type": "string"}, "category": _OPTIONAL_CATEGORY}, "required": ["query"]}},
     {"name": "get_category_summary", "description": "Median own-price elasticity of a category, units change and break-even gross margin for a 10 % price cut.",
      "parameters": {"type": "object", "properties": {"category": _CATEGORY_PARAM}, "required": ["category"]}},
     {"name": "get_product_elasticity", "description": "Own-price elasticity of one product with 95 % interval, feature/display effects and post-promotion effect.",
      "parameters": {"type": "object", "properties": {"upc": {"type": "integer"}}, "required": ["upc"]}},
     {"name": "get_cross_elasticity", "description": "Cross-price elasticities: effect of one brand's price on the units of other brands in the same category.",
      "parameters": {"type": "object", "properties": {"category": _CATEGORY_PARAM,
-                    "brand_whose_price_changes": {"type": "string"}, "brand_whose_sales_move": {"type": "string"}},
+                    "brand_whose_price_changes": {"type": "string"}, "brand_whose_sales_move": {"type": ["string", "null"]}},
                     "required": ["category", "brand_whose_price_changes"]}},
     {"name": "get_promo_performance", "description": "Baseline vs incremental volume, trade spend, incremental profit, ROI and break-even margin of promotions in a category, by mechanic (TPR only, Display, Feature, Feature + Display).",
-     "parameters": {"type": "object", "properties": {"category": _CATEGORY_PARAM, "mechanic": {"type": "string"},
-                    "gross_margin": {"type": "number", "description": "0.25, 0.35 or 0.45; default 0.35"}}, "required": ["category"]}},
+     "parameters": {"type": "object", "properties": {"category": _CATEGORY_PARAM,
+                    "mechanic": {"type": ["string", "null"], "description": "optional: TPR only, Display, Feature or Feature + Display"},
+                    "gross_margin": {"type": ["number", "null"], "description": "0.25, 0.35 or 0.45; default 0.35"}}, "required": ["category"]}},
     {"name": "get_forecast_accuracy", "description": "Backtest WAPE and bias of the forecast models (seasonal naive, moving average, regression, LightGBM) and P10-P90 coverage, for all weeks, promotion weeks, weeks without promotion or a category.",
-     "parameters": {"type": "object", "properties": {"segment": {"type": "string"}}}},
+     "parameters": {"type": "object", "properties": {"segment": {"type": ["string", "null"],
+                    "description": "optional, default 'all weeks': 'all weeks', 'promotion weeks', 'weeks without promotion' or a category"}}}},
     {"name": "simulate_promotion", "description": "Simulate one promoted week for a product across all its stores: volume, revenue and gross profit change, ROI, break-even margin.",
      "parameters": {"type": "object", "properties": {"upc": {"type": "integer"},
                     "price_change": {"type": "number", "description": "relative change, e.g. -0.10 for a 10 % price cut"},
-                    "feature": {"type": "boolean"}, "display": {"type": "boolean"},
-                    "gross_margin": {"type": "number", "description": "share of base price, default 0.35"}},
+                    "feature": {"type": ["boolean", "null"]}, "display": {"type": ["boolean", "null"]},
+                    "gross_margin": {"type": ["number", "null"], "description": "share of base price, default 0.35"}},
                     "required": ["upc", "price_change"]}},
     {"name": "get_data_quality", "description": "Data-quality checks on the raw data (rows, duplicates, missing values, flagged rows).",
      "parameters": {"type": "object", "properties": {}}},
@@ -240,6 +252,7 @@ def call_tool(name: str, arguments: dict | str) -> str:
     """Run a tool and return its result as a JSON string (errors are returned, not raised)."""
     if isinstance(arguments, str):
         arguments = json.loads(arguments or "{}")
+    arguments = {k: v for k, v in (arguments or {}).items() if v is not None}   # null = use the default
     if name not in TOOLS:
         return json.dumps({"error": f"unknown tool {name}"})
     try:

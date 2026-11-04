@@ -66,3 +66,59 @@ def test_provider_errors_are_reported():
         chat = NS(completions=NS(create=lambda **k: (_ for _ in ()).throw(RuntimeError("quota exceeded"))))
     res = Assistant(Broken(), "fake-model").ask("?")
     assert "quota exceeded" in res.error
+
+
+class RateLimited(Exception):
+    status_code = 429
+
+
+def test_agent_waits_and_retries_on_rate_limits():
+    calls = {"n": 0}
+    waits = []
+
+    def create(**kwargs):
+        calls["n"] += 1
+        if calls["n"] <= 2:
+            raise RateLimited("429 Too Many Requests")
+        return response(content="ok")
+
+    client = NS(chat=NS(completions=NS(create=create)))
+    res = Assistant(client, "fake-model", backoff_s=1, sleep=waits.append).ask("?")
+    assert res.answer == "ok" and res.error is None
+    assert waits == [1, 2]                      # exponential backoff, no real sleeping in tests
+
+
+def test_agent_gives_up_after_max_retries():
+    def create(**kwargs):
+        raise RateLimited("429 Too Many Requests")
+    client = NS(chat=NS(completions=NS(create=create)))
+    res = Assistant(client, "fake-model", max_retries=2, sleep=lambda s: None).ask("?")
+    assert res.provider_error and "429" in res.error
+
+
+def test_optional_parameters_accept_null():
+    # Groq rejected get_forecast_accuracy(segment=null) when the schema did not allow null (q04, q05)
+    out = json.loads(call_tool("get_forecast_accuracy", {"segment": None}))
+    assert out["segment"] == "all weeks"
+    out = json.loads(call_tool("get_promo_performance", {"category": "pretzels", "mechanic": None, "gross_margin": None}))
+    assert out["gross_margin_assumed"] == 0.35
+    for schema in TOOL_SCHEMAS:
+        props, required = schema["parameters"]["properties"], schema["parameters"].get("required", [])
+        for name, p in props.items():
+            if name not in required:
+                assert "null" in p["type"], f"{schema['name']}.{name} should accept null"
+
+
+def test_brands_are_returned_with_readable_names():
+    out = json.loads(call_tool("get_cross_elasticity", {"category": "pizza", "brand_whose_price_changes": "DiGiorno"}))
+    assert out["brand_whose_price_changes"] == "DiGiorno (Kraft)"
+    assert "Private label" in [e["brand_whose_sales_move"] for e in out["effects"]]
+
+
+def test_only_infrastructure_errors_are_provider_failures():
+    from promo_pricing.assistant.agent import is_provider_failure
+
+    def err(status):
+        e = Exception("x"); e.status_code = status; return e
+    assert is_provider_failure(err(429)) and is_provider_failure(err(503)) and is_provider_failure(err(401))
+    assert not is_provider_failure(err(400))      # invalid tool call: the model's mistake

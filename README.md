@@ -70,9 +70,16 @@ Full log: [`docs/data_quality_log.md`](docs/data_quality_log.md) · Details: [`n
 - **Overview** — the headline results.
 - **Promotion simulator** — pick a product, a discount, feature and display and a margin: units, gross profit, ROI and break-even margin, plus profit for every discount depth. Above: with feature and display, DiGiorno pizza makes the most profit with the *smallest* discount — the support, not the price cut, drives the volume.
 - **Forecast** — backtest accuracy and bias by model, and example series with the low–high scenario.
-- **Ask the data** — an LLM assistant (Mistral, Groq, OpenAI or a local Ollama model) that answers in English or French by **calling tools that read the result tables**, so every number comes from the analysis; each answer shows the tool calls behind it.
+- **Ask the data** — an LLM assistant (Groq, Mistral, OpenAI or a local Ollama model) that answers in English or French by **calling tools that read the result tables**, so every number comes from the analysis; each answer shows the tool calls behind it.
 
 The assistant is measured on an **evaluation set of 20 questions** (lookups, comparisons, simulations, multi-step questions and out-of-scope questions it must decline), graded automatically on the numbers, keywords and refusals a correct answer must contain, and on whether the answer was grounded in a tool call. The expected answers are themselves tested against the result tables. Design, evaluation and free deployment: [`docs/assistant.md`](docs/assistant.md).
+
+| Run | Model | Score | What changed |
+|---|---|---|---|
+| 1 | `openai/gpt-oss-120b` on Groq | 17 / 20 | first measurement: 2 tool calls rejected by the provider (optional parameter sent as `null`), 1 correct answer missed by the grader (non-breaking hyphen) |
+| 2 | `openai/gpt-oss-120b` on Groq | **20 / 20**, 100 % grounded in tools | optional tool parameters accept `null`, readable brand names in tool results, hyphen-tolerant grading — each fix covered by a regression test |
+
+*Limits: 20 questions written alongside the assistant, one run per version. Next steps: questions never seen during the fixes (misspelt products, ambiguous or adversarial questions) and repeated runs to measure stability.* Full report: [`reports/assistant_eval.md`](reports/assistant_eval.md).
 
 ## Data
 
@@ -110,7 +117,7 @@ python -m promo_pricing.pipeline --skip-forecast   # quicker run without the bac
 pytest                                        # 61 tests
 
 streamlit run app/streamlit_app.py            # the interactive app
-python -m promo_pricing.assistant.evaluate --provider mistral --pause 2   # evaluate the assistant (needs LLM_API_KEY)
+python -m promo_pricing.assistant.evaluate --provider groq --pause 5   # evaluate the assistant (needs LLM_API_KEY)
 ```
 
 The pipeline builds the database (`sql/01_load.sql`, `sql/03_weekly_panel.sql`, `sql/04_forecast_features.sql`), runs the quality checks and the models, and writes every result to `reports/tables/`. The notebooks tell the story step by step: open them in order with the `.venv` kernel (notebook 04 takes about 5 minutes).

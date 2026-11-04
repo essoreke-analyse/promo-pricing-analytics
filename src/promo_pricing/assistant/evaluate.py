@@ -1,6 +1,6 @@
 """Run the evaluation set against the assistant and grade every answer automatically.
 
-    python -m promo_pricing.assistant.evaluate --provider mistral --pause 2
+    python -m promo_pricing.assistant.evaluate --provider groq --pause 5
 
 Writes reports/assistant_eval.csv (one line per question) and reports/assistant_eval.md (summary).
 """
@@ -56,10 +56,19 @@ def number_found(spec: dict, found: list[float]) -> bool:
     return False
 
 
+def normalise(text: str) -> str:
+    """Lower case; hyphens of any kind (e.g. non-breaking '‑') and non-breaking spaces become plain spaces,
+    so 'private‑label' matches 'private label'."""
+    t = text.lower()
+    for ch in "\u2010\u2011\u2012\u2013\u2014-\xa0\u202f":
+        t = t.replace(ch, " ")
+    return " ".join(t.split())
+
+
 def grade(q: dict, answer: str, tool_names: list[str]) -> dict:
     """Pass if every expected number and keyword group is present (or, for out-of-scope
     questions, if the assistant declines)."""
-    text = answer.lower()
+    text = normalise(answer)
     reasons = []
     if q.get("refuse"):
         if not any(w in text for w in REFUSAL_WORDS):
@@ -68,7 +77,7 @@ def grade(q: dict, answer: str, tool_names: list[str]) -> dict:
         if not number_found(spec, extract_numbers(answer)):
             reasons.append(f"missing number {spec.get('value', spec.get('any_of'))}")
     for group in q.get("keywords", []):
-        if not any(w.lower() in text for w in group):
+        if not any(normalise(w) in text for w in group):
             reasons.append(f"missing one of {group}")
     expected_tools = q.get("tools", [])
     grounded = (not expected_tools) or any(t in tool_names for t in expected_tools)
@@ -77,32 +86,59 @@ def grade(q: dict, answer: str, tool_names: list[str]) -> dict:
     return {"passed": not reasons, "grounded": grounded, "reasons": "; ".join(reasons)}
 
 
-def run(assistant, questions: list[dict], pause: float = 0.0) -> pd.DataFrame:
-    rows = []
+def run(assistant, questions: list[dict], pause: float = 0.0, stop_after_errors: int = 3) -> pd.DataFrame:
+    """Ask every question and grade it. Provider failures (quota, network) are recorded as
+    'not graded' rather than as wrong answers; the run stops after a few consecutive ones."""
+    rows, consecutive = [], 0
     for q in questions:
         res = assistant.ask(q["question"])
         names = [c["name"] for c in res.tool_calls]
-        g = grade(q, res.answer, names) if not res.error else {"passed": False, "grounded": False, "reasons": res.error}
+        failed = bool(res.error) and res.provider_error        # quota / network: not the model's fault
+        if failed:
+            g = {"passed": None, "grounded": None, "reasons": res.error}
+        elif res.error:                                          # e.g. invalid tool call: the model failed
+            g = {"passed": False, "grounded": bool(names), "reasons": res.error}
+        else:
+            g = grade(q, res.answer, names)
         rows.append({"id": q["id"], "type": q["type"], "question": q["question"], "answer": res.answer,
-                     "tools_called": ", ".join(names), **g, "latency_s": round(res.latency_s, 2),
+                     "tools_called": ", ".join(names), "graded": not failed, **g,
+                     "latency_s": round(res.latency_s, 2),
                      "prompt_tokens": res.prompt_tokens, "completion_tokens": res.completion_tokens})
+        consecutive = consecutive + 1 if failed else 0
+        if consecutive >= stop_after_errors:
+            print(f"Stopped: {consecutive} provider errors in a row ({res.error}). "
+                  "Check the API key, the account limits, or wait and retry.")
+            break
         time.sleep(pause)   # free tiers limit requests per minute
     return pd.DataFrame(rows)
 
 
 def summary_markdown(df: pd.DataFrame, model: str) -> str:
-    by_type = df.groupby("type").agg(questions=("id", "count"), passed=("passed", "sum"))
-    by_type["accuracy"] = (100 * by_type["passed"] / by_type["questions"]).round(0).astype(int).astype(str) + " %"
-    lines = [f"# Assistant evaluation — {model}", "",
-             f"**Accuracy: {df['passed'].sum()} / {len(df)} ({100 * df['passed'].mean():.0f} %)** · "
-             f"grounded in tools: {100 * df['grounded'].mean():.0f} % · median latency {df['latency_s'].median():.1f} s · "
-             f"tokens: {df['prompt_tokens'].sum():,} in, {df['completion_tokens'].sum():,} out", "",
-             "| Question type | Questions | Passed | Accuracy |", "|---|---|---|---|"]
-    lines += [f"| {t} | {r.questions} | {r.passed} | {r.accuracy} |" for t, r in by_type.iterrows()]
-    fails = df[~df["passed"]]
-    if len(fails):
-        lines += ["", "## Failures", "", "| id | question | reason |", "|---|---|---|"]
-        lines += [f"| {r.id} | {r.question} | {r.reasons} |" for r in fails.itertuples()]
+    graded = df[df["graded"]]
+    errors = df[~df["graded"]]
+    lines = [f"# Assistant evaluation — {model}", ""]
+    if len(graded):
+        passed = int(graded["passed"].astype(bool).sum())
+        by_type = graded.groupby("type").agg(questions=("id", "count"),
+                                             passed=("passed", lambda x: int(x.astype(bool).sum())))
+        by_type["accuracy"] = (100 * by_type["passed"] / by_type["questions"]).round(0).astype(int).astype(str) + " %"
+        lines += [f"**Accuracy: {passed} / {len(graded)} ({100 * passed / len(graded):.0f} %)** · "
+                  f"grounded in tools: {100 * graded['grounded'].astype(bool).mean():.0f} % · "
+                  f"median latency {graded['latency_s'].median():.1f} s · "
+                  f"tokens: {graded['prompt_tokens'].sum():,} in, {graded['completion_tokens'].sum():,} out", "",
+                  "| Question type | Questions | Passed | Accuracy |", "|---|---|---|---|"]
+        lines += [f"| {t} | {r.questions} | {r.passed} | {r.accuracy} |" for t, r in by_type.iterrows()]
+        fails = graded[~graded["passed"].astype(bool)]
+        if len(fails):
+            lines += ["", "## Wrong answers", "", "| id | question | reason |", "|---|---|---|"]
+            lines += [f"| {r.id} | {r.question} | {r.reasons} |" for r in fails.itertuples()]
+    else:
+        lines += ["**No question could be graded.**"]
+    if len(errors):
+        lines += ["", f"## Not graded: provider errors ({len(errors)})", "",
+                  "These are failures of the API (quota, network), not mistakes of the model.", "",
+                  "| id | error |", "|---|---|"]
+        lines += [f"| {r.id} | {r.reasons} |" for r in errors.itertuples()]
     return "\n".join(lines) + "\n"
 
 
@@ -110,7 +146,7 @@ def main(argv=None) -> None:
     from promo_pricing.assistant.agent import Assistant, make_client
 
     p = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    p.add_argument("--provider", default=None, help="mistral, groq, openai or ollama (default: LLM_PROVIDER)")
+    p.add_argument("--provider", default=None, help="groq, mistral, openai or ollama (default: LLM_PROVIDER, else groq)")
     p.add_argument("--model", default=None)
     p.add_argument("--pause", type=float, default=1.0, help="seconds between questions (free-tier rate limits)")
     p.add_argument("--only", nargs="*", help="question ids to run, e.g. q01 q12")

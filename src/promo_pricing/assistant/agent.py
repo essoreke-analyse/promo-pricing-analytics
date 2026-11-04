@@ -4,7 +4,7 @@ Works with any provider exposing the OpenAI chat-completions API with tools:
 Mistral, Groq, OpenAI, or a local Ollama server. Configure with environment variables
 (or Streamlit secrets):
 
-    LLM_PROVIDER = mistral | groq | openai | ollama      (presets below)
+    LLM_PROVIDER = groq | mistral | openai | ollama      (presets below; groq has a free API tier)
     LLM_API_KEY  = your key (not needed for ollama)
     LLM_MODEL    = optional, overrides the preset model
     LLM_BASE_URL = optional, overrides the preset URL
@@ -48,33 +48,69 @@ class AgentResult:
     prompt_tokens: int = 0
     completion_tokens: int = 0
     error: str | None = None
+    provider_error: bool = False   # the provider failed (quota, network): not a mistake of the model
 
 
 def make_client(provider: str | None = None, api_key: str | None = None, base_url: str | None = None):
     """OpenAI-compatible client for the chosen provider."""
     from openai import OpenAI   # imported here so the rest of the package works without it
 
-    provider = (provider or os.getenv("LLM_PROVIDER", "mistral")).lower()
+    provider = (provider or os.getenv("LLM_PROVIDER", "groq")).lower()
     preset = PRESETS.get(provider, {})
     url = base_url or os.getenv("LLM_BASE_URL") or preset.get("base_url")
     key = api_key or os.getenv("LLM_API_KEY") or ("ollama" if provider == "ollama" else None)
     if not key:
         raise RuntimeError("No API key: set LLM_API_KEY (or use LLM_PROVIDER=ollama for a local model).")
-    return OpenAI(base_url=url, api_key=key), os.getenv("LLM_MODEL") or preset.get("model")
+    # retries are handled by Assistant._create (with longer waits suited to free tiers)
+    return OpenAI(base_url=url, api_key=key, max_retries=0), os.getenv("LLM_MODEL") or preset.get("model")
+
+
+def is_rate_limit(exc: Exception) -> bool:
+    """True for HTTP 429 'too many requests' errors, whatever the SDK's exception class."""
+    return getattr(exc, "status_code", None) == 429 or type(exc).__name__ == "RateLimitError"
+
+
+def is_provider_failure(exc: Exception) -> bool:
+    """Infrastructure failures (quota, authentication, server, network) are not the model's fault.
+    A 400 'bad request' - e.g. a tool call that does not match the schema - is counted against the model."""
+    status = getattr(exc, "status_code", None)
+    if status is not None:
+        return status in (401, 403, 429) or status >= 500
+    return type(exc).__name__ in {"APIConnectionError", "APITimeoutError", "RateLimitError"}
+
+
+def retry_after(exc: Exception) -> float | None:
+    """Seconds to wait if the provider says so in a Retry-After header."""
+    try:
+        return float(exc.response.headers.get("retry-after"))
+    except Exception:
+        return None
 
 
 class Assistant:
-    def __init__(self, client, model: str, max_steps: int = 6, temperature: float = 0.0):
+    def __init__(self, client, model: str, max_steps: int = 6, temperature: float = 0.0,
+                 max_retries: int = 4, backoff_s: float = 5.0, sleep=time.sleep):
         self.client, self.model, self.max_steps, self.temperature = client, model, max_steps, temperature
+        self.max_retries, self.backoff_s, self.sleep = max_retries, backoff_s, sleep
         self.tools = [{"type": "function", "function": s} for s in TOOL_SCHEMAS]
+
+    def _create(self, messages):
+        """One model call, waiting and retrying on rate limits (5 s, 10 s, 20 s, 40 s by default)."""
+        for attempt in range(self.max_retries + 1):
+            try:
+                return self.client.chat.completions.create(model=self.model, messages=messages, tools=self.tools,
+                                                           tool_choice="auto", temperature=self.temperature)
+            except Exception as e:
+                if not is_rate_limit(e) or attempt == self.max_retries:
+                    raise
+                self.sleep(retry_after(e) or self.backoff_s * 2 ** attempt)
 
     def ask(self, question: str, history: list | None = None) -> AgentResult:
         messages = [{"role": "system", "content": SYSTEM_PROMPT}] + (history or []) + [{"role": "user", "content": question}]
         result, t0 = AgentResult(answer=""), time.time()
         try:
             for _ in range(self.max_steps):
-                resp = self.client.chat.completions.create(model=self.model, messages=messages, tools=self.tools,
-                                                           tool_choice="auto", temperature=self.temperature)
+                resp = self._create(messages)
                 if getattr(resp, "usage", None):
                     result.prompt_tokens += resp.usage.prompt_tokens or 0
                     result.completion_tokens += resp.usage.completion_tokens or 0
@@ -93,7 +129,8 @@ class Assistant:
                     messages.append({"role": "tool", "tool_call_id": c.id, "name": c.function.name, "content": output})
             else:
                 result.answer = "I could not finish the analysis within the allowed number of steps."
-        except Exception as e:   # network, quota, provider errors: reported, not raised
+        except Exception as e:   # reported, not raised
             result.error = f"{type(e).__name__}: {e}"
+            result.provider_error = is_provider_failure(e)
         result.latency_s = time.time() - t0
         return result
