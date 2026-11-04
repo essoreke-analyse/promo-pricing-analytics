@@ -43,6 +43,10 @@ This project answers that question on 156 weeks of store-level sales for 55 cons
 
 ![Forecast accuracy in the backtest](reports/figures/09_forecast_accuracy.png)
 
+![Forecast example for one product and store](reports/figures/10_forecast_example.png)
+
+*Example: the LightGBM forecast follows the promotion peaks that the moving average misses; the shaded band is the low–high scenario (P10–P90).*
+
 - **Rolling-origin backtest** over the last 28 weeks (7 forecast dates × 4 weeks ahead), with the promotion plan known in advance and only sales at least 4 weeks old as inputs.
 - **LightGBM reaches a 29 % WAPE with no overall bias**, against 45 % for a moving average and 60 % for "same week last year": 36 % of the moving-average error removed.
 - **Simple rules fail on promotions**: the moving average under-forecasts promotion weeks by 35 % (stock-outs) and over-forecasts normal weeks by 21 %; LightGBM stays within ±3 %.

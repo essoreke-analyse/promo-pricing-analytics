@@ -38,9 +38,9 @@ All 55 products are price-elastic, but only pizza and, to a lesser extent, cerea
 
 ## 3. Forecasting promoted weeks
 
-![Forecast accuracy in the backtest](figures/09_forecast_accuracy.png)
+![Forecast example](figures/10_forecast_example.png)
 
-Backtest over the last 28 weeks, forecasting 1 to 4 weeks ahead with the promotion plan known in advance:
+*Example — DiGiorno pepperoni pizza in one store: the forecast follows the promotion peaks that the moving average misses, and the shaded band shows the low and high scenarios.* Across all products, backtest over the last 28 weeks, forecasting 1 to 4 weeks ahead with the promotion plan known in advance:
 
 | | Same week last year | Moving average | **LightGBM with promo plan** |
 |---|---|---|---|
