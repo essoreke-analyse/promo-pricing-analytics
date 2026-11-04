@@ -1,4 +1,5 @@
-"""Render reports/client_note.md to reports/client_note.pdf (A4, two pages).
+"""Render the client notes (reports/client_note.md and the French version client_note_fr.md)
+to PDF (A4, two pages each).
 
 Usage: python reports/build_note_pdf.py
 Needs: pip install markdown playwright && playwright install chromium
@@ -20,7 +21,7 @@ h2 { font-size: 10.8pt; margin: 10px 0 4px; color: #1c5cab; }
 p { margin: 3px 0 5px; }
 ul, ol { margin: 3px 0 6px; padding-left: 17px; }
 li { margin: 2px 0; }
-img { width: 100%; margin: 3px 0 2px; }
+img { width: 94%; display: block; margin: 3px auto 2px; }
 table { border-collapse: collapse; width: 100%; margin: 4px 0 7px; font-size: 8.4pt; }
 th, td { border-bottom: 1px solid #e6e5e1; padding: 3px 6px; text-align: right; }
 th:first-child, td:first-child { text-align: left; }
@@ -29,13 +30,14 @@ h2:first-of-type + ul { background: #f3f7fd; border-left: 3px solid #2a78d6; pad
 """
 
 
-def build() -> Path:
-    md_text = (HERE / "client_note.md").read_text(encoding="utf-8")
+def build(name: str = "client_note") -> Path:
+    md_text = (HERE / f"{name}.md").read_text(encoding="utf-8")
     body = markdown.markdown(md_text, extensions=["tables"])
-    html = f"<!doctype html><html><head><meta charset='utf-8'><style>{CSS}</style></head><body>{body}</body></html>"
-    html_path = HERE / "_client_note.html"
+    lang = "fr" if name.endswith("_fr") else "en"
+    html = f"<!doctype html><html lang='{lang}'><head><meta charset='utf-8'><style>{CSS}</style></head><body>{body}</body></html>"
+    html_path = HERE / f"_{name}.html"
     html_path.write_text(html, encoding="utf-8")
-    pdf_path = HERE / "client_note.pdf"
+    pdf_path = HERE / f"{name}.pdf"
     with sync_playwright() as p:
         browser = p.chromium.launch()
         page = browser.new_page()
@@ -47,4 +49,5 @@ def build() -> Path:
 
 
 if __name__ == "__main__":
-    print(build())
+    for note in ("client_note", "client_note_fr"):
+        print(build(note))
