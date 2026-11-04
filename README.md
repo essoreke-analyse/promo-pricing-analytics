@@ -1,4 +1,4 @@
-# Promo & Pricing Analytics — weekly retail panel data
+# Promo & Pricing Analytics - weekly retail panel data
 
 [![tests](https://github.com/essoreke-analyse/promo-pricing-analytics/actions/workflows/tests.yml/badge.svg)](https://github.com/essoreke-analyse/promo-pricing-analytics/actions/workflows/tests.yml)
 
@@ -7,9 +7,9 @@ This project answers that question on 156 weeks of store-level sales for 55 cons
 
 > **Status:** data loaded, quality-checked and explored; modelling table built; price elasticities estimated; promotion uplift and ROI measured; weekly forecast backtested; the whole analysis runs as one tested pipeline; interactive app with a promotion simulator and an LLM assistant evaluated on 20 questions.
 
-> **Live app:** [promo-pricing-analytics.streamlit.app](https://promo-pricing-analytics.streamlit.app) — promotion simulator, forecast explorer and an AI assistant that answers questions about the results.
+> **Live app:** [promo-pricing-analytics.streamlit.app](https://promo-pricing-analytics.streamlit.app) - promotion simulator, forecast explorer and an AI assistant that answers questions about the results.
 
-> **Two-page client note:** [`reports/client_note.md`](reports/client_note.md) · [PDF](reports/client_note.pdf) — findings and recommendations for a category / revenue management team.
+> **Two-page client note:** [`reports/client_note.md`](reports/client_note.md) · [PDF](reports/client_note.pdf) - findings and recommendations for a category / revenue management team.
 
 ## Key findings so far
 
@@ -38,7 +38,7 @@ This project answers that question on 156 weeks of store-level sales for 55 cons
 - **A price cut alone mostly discounts sales that would have happened anyway**: with TPR only, 53 % (pizza) to 86 % (pretzels) of promoted units are baseline volume.
 - **Feature and display do most of the work**: with feature + display, 59 % to 78 % of promoted units are incremental, and support brings more than half of the extra volume in 10 of the 12 supported combinations.
 - **TPR-only promotions never pay off at normal margins** (median break-even margin 46 % to 139 %). They take 22 % of all trade spend but about two thirds of the gross-profit loss at a 35 % margin.
-- **Best promotion: display on pretzels** — a 7 % average discount, profitable even at a 25 % margin.
+- **Best promotion: display on pretzels**  a 7 % average discount, profitable even at a 25 % margin.
 - Recommendation: move TPR-only budgets to display, keep feature + display in pizza and cereal only where the margin exceeds ~35 %, and judge promotions on incremental profit, not volume lift.
 
 ### 4. Weekly forecast, 1 to 4 weeks ahead
@@ -52,7 +52,7 @@ This project answers that question on 156 weeks of store-level sales for 55 cons
 - **Rolling-origin backtest** over the last 28 weeks (7 forecast dates × 4 weeks ahead), with the promotion plan known in advance and only sales at least 4 weeks old as inputs.
 - **LightGBM reaches a 29 % WAPE with no overall bias**, against 45 % for a moving average and 60 % for "same week last year": 36 % of the moving-average error removed.
 - **Simple rules fail on promotions**: the moving average under-forecasts promotion weeks by 35 % (stock-outs) and over-forecasts normal weeks by 21 %; LightGBM stays within ±3 %.
-- **Low and high scenarios (P10–P90)** from quantile models contain the actual sales 77 % of the time against an 80 % target — slightly too narrow, to be calibrated before use.
+- **Low and high scenarios (P10–P90)** from quantile models contain the actual sales 77 % of the time against an 80 % target - slightly too narrow, to be calibrated before use.
 - Accuracy barely degrades from 1 to 4 weeks ahead (27 % → 29 %): the promotion calendar carries most of the information.
 
 ### 5. Data quality
